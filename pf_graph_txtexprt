@@ -1,0 +1,85 @@
+
+
+! script name: pf_graph_txtexprt
+! programming language: DIgSILENT DPL
+! PowerFactory version: 2020 SP5
+
+! txt_path is an input parameter with string type which gives
+! export directory for the text files.
+! vip_name is an input parameter with string type which gives
+! name of the source virtual intrument panel. The script exports graphs
+! that have already been plotted in the source panel. Each
+! VisPlot in the source panel will be saved in a seprate text file. The
+! length of these text files is optionally limited to 30 characters.
+! Note: The attribute "iopt_results" must be set to user defined for 
+! the VisPlot objects.  
+
+set      vi_set;
+object   res_com,res_obj,vi_obj,elm_obj,vip_obj,grph_obj;
+int      i,j,ibool;
+string   var_str,file_name;
+
+
+grph_obj=GetGraphBoard(); 
+vip_obj=grph_obj.GetPage(vip_name,0);
+if(vip_obj=NULL)
+Error('The %s could not be found',vip_name);
+
+
+res_com = GetCaseObject('*.ComRes');
+vi_set = vip_obj.GetContents('*.VisPlot',0);
+
+res_com:iopt_exp = 4; ! export txt file
+res_com:iopt_csel = 1;
+res_com:iopt_vars = 0;
+res_com:iopt_tsel = 0;
+res_com:filtered = 0;
+res_com:iopt_locn = 1;
+res_com:ciopt_head = 1;
+
+
+for(vi_obj=vi_set.First();vi_obj;vi_obj=vi_set.Next()){
+file_name = '';
+
+ibool=vi_obj:iopt_results;
+if(ibool=1){
+res_obj = vi_obj:use_res; ! this attribute returns nothing in PF2020SP5
+}
+else{
+res_obj = vi_obj:commonResults;
+}
+
+res_com.SetSize('element',0);
+
+vi_obj.GetSize('variable',j);
+res_com.SetSize('element',j+1);
+res_com.SetVal(res_obj,'element',0);
+res_com.SetVal('b:tnow','cvariable',0);
+
+for(i=1;i<=j;i+=1){
+vi_obj.GetVal(elm_obj,'pObjs',i-1);
+res_com.SetVal(elm_obj,'element',i);
+
+ibool=vi_obj.GetVal(var_str,'Variable',i-1);
+res_com.SetVal(var_str,'cvariable',i);
+
+
+ibool=strlen(file_name);
+if(ibool<30){
+file_name = sprintf('%s_%s_%s',file_name,elm_obj:loc_name,var_str);
+if(i=1)
+file_name = sprintf('%s_%s',elm_obj:loc_name,var_str);
+ibool=0;
+while(ibool<>-1){
+ibool = strchg(file_name,':','');
+}
+}
+}
+
+file_name = sprintf('%s\\%s.txt',txt_path,file_name);
+res_com:f_name = file_name;
+res_com.Execute();
+}
+
+
+
